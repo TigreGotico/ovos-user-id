@@ -48,7 +48,7 @@ class UserAuthPhrasePlugin(UtteranceTransformer):
     this is the simplest user recognition plugin"""
     def __init__(self, name="ovos-user-auth-phrase", priority=90):
         super().__init__(name, priority)
-        self.db = UserDB()
+        self.db = UserDB(self.config.get("database_path"))
         self.sess2user = {}
 
     def transform(self, utterances: List[str],
@@ -86,7 +86,7 @@ class UserSessionPlugin(MetadataTransformer):
 
     def __init__(self, name="ovos-user-session-manager", priority=90):
         super().__init__(name, priority)
-        self.db = UserDB()
+        self.db = UserDB(self.config.get("database_path"))
         # plugin can be configured to only handle local users (eg, speaker recognition)
         # vs remote users (eg, sent by hivemind)
         self.ignore_default_session = self.config.get("ignore_default_session", False)
