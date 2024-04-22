@@ -5,6 +5,7 @@ from ovos_utils.log import LOG
 
 from ovos_bus_client.message import Message
 from ovos_bus_client.session import Session
+from ovos_user_id.cam import CameraManager
 from ovos_user_id.db import UserManager
 
 
@@ -29,8 +30,9 @@ class UserAuthPhrasePlugin(UtteranceTransformer):
                 LOG.info(f"User auth_phrase match! user_id: {user['user_id']}")
                 sess = Session.deserialize(context.get("session", {}))
                 sess = UserManager.assign2session(user["user_id"],
-                                           session_id=sess.session_id)
+                                                  session_id=sess.session_id)
                 context["session"] = sess.serialize()
+                context["user_id"] = user["user_id"]
                 # companion skill can speak on this event
                 self.bus.emit(Message("ovos_users.auth_phrase.success",
                                       {"user_id": user["user_id"],
@@ -70,4 +72,41 @@ class UserSessionPlugin(MetadataTransformer):
         sess = UserManager.assign2session(user_id=context["user_id"],
                                           session_id=sess.session_id)
         context["session"] = sess.serialize()
+        return context
+
+
+class UserFaceAuthPlugin(MetadataTransformer):
+    """performs face recognition if a camera_id is assigned to the message.context"""
+
+    def __init__(self, name="ovos-user-face-auth", priority=50):
+        super().__init__(name, priority)
+        self.face_recognizer = None  # TODO - face recognition plugin
+
+    def transform(self, context: dict = None) -> dict:
+        if "user_id" in context:
+            # do not overwrite previous user data
+            return context
+
+        camera_id = context.get("camera_id")
+        if not camera_id:
+            return context
+
+        cam = CameraManager.get(camera_id)
+        frame = cam.get()
+        if self.face_recognizer:
+            faces = self.face_recognizer.recognize(frame)
+            if faces:
+                user = faces[0]  # TODO - what if multiple matches
+                LOG.info(f"User face match! user_id: {user['user_id']}")
+                sess = Session.deserialize(context.get("session", {}))
+                sess = UserManager.assign2session(user["user_id"],
+                                                  session_id=sess.session_id)
+                context["session"] = sess.serialize()
+                context["user_id"] = user["user_id"]
+                # companion skill can speak on this event
+                self.bus.emit(Message("ovos_users.face_auth.success",
+                                      {"user_id": user["user_id"],
+                                       "name": user["name"]}),
+                              context)
+
         return context

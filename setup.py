@@ -1,7 +1,10 @@
 from setuptools import setup
 
 UTTERANCE_ENTRY_POINT = f'ovos-user-auth-phrase=ovos_user_id.opm:UserAuthPhrasePlugin'
-METADATA_ENTRY_POINT = f'ovos-user-auth-phrase=ovos_user_id.opm:UserSessionPlugin'
+METADATA_ENTRY_POINT = (
+    'ovos-user-session-manager=ovos_user_id.opm:UserSessionPlugin',
+    'ovos-user-face-auth=ovos_user_id.opm:UserFaceAuthPlugin'
+)
 
 setup(
     name='ovos-user-id',
