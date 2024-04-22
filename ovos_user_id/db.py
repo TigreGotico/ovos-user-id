@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Iterable, List, Union, Dict
+from typing import List, Union, Dict, Optional
 
 from ovos_config import Configuration
 from ovos_config.locations import get_xdg_data_save_path
@@ -16,8 +16,9 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import MappedAsDataclass
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import sessionmaker
-
+from ovos_utils.log import LOG
 from ovos_bus_client.message import Message
+from ovos_bus_client.session import Session, SessionManager
 
 
 class Base(MappedAsDataclass, DeclarativeBase):
@@ -98,21 +99,16 @@ class UserDB:
 
     def __init__(self, db_path: str = None):
         if not db_path:
-            os.makedirs(get_xdg_data_save_path('ovos_users'), exist_ok=True)
-            db_path = f"sqlite:///{get_xdg_data_save_path('ovos_users')}/user_database.db"
+            db_path = Configuration().get("users", {}).get("database")
+            if not db_path:
+                os.makedirs(get_xdg_data_save_path('ovos_users'), exist_ok=True)
+                db_path = f"sqlite:///{get_xdg_data_save_path('ovos_users')}/user_database.db"
         self.engine = create_engine(db_path)
         self.Session = sessionmaker(bind=self.engine)
         self.create_tables()
 
     def create_tables(self):
         Base.metadata.create_all(self.engine)
-
-    def from_message(self, message: Message) -> dict:
-        if "user_id" in message.context:
-            uid = message.context["user_id"]
-            return self.get_user(uid) or self.default_user
-        else:
-            return self.default_user
 
     @property
     def default_user(self) -> dict:
@@ -264,3 +260,49 @@ class UserDB:
         finally:
             session.close()
 
+
+class UserManager:
+    db = UserDB()
+    sess2user = {}
+
+    @staticmethod
+    def from_message(message: Message) -> Optional[dict]:
+        uid = message.context.get("user_id", "unknown")
+        if uid == "unknown":
+            return None
+        assert uid.isdigit()  # validate
+        return UserManager.db.get_user(int(uid))
+
+    @staticmethod
+    def assign2session(user_id: int, session_id: str) -> Session:
+        user = (UserManager.db.get_user(user_id) or
+                UserManager.db.default_user)
+        if session_id and session_id in SessionManager.sessions:
+            sess = SessionManager.sessions[session_id]
+        else:
+            sess = Session(session_id=session_id)
+        sess.tts_prefs = user["tts_config"]
+        sess.stt_prefs = user["stt_config"]
+        sess.location_prefs = {
+            "coordinate": {"latitude": user["latitude"],
+                           "longitude": user["longitude"]},
+            "timezone": {"code": user["timezone"],
+                         "name": user["timezone"]},
+            "city": {"code": user["city_code"],
+                     "name": user["city"],
+                     "region": {
+                         "code": user["region_code"],
+                         "name": user["region"],
+                         "country": {"name": user["country"],
+                                     "code": user["country_code"]}
+                     }
+                     }
+        }
+        sess.lang = user["lang"]
+        sess.date_format = user["date_format"]
+        sess.time_format = user["time_format"]
+        sess.system_unit = user["system_unit"]
+        SessionManager.update(sess)
+        UserManager.sess2user[sess.session_id] = user_id
+        LOG.debug(f"assigned user_id: {user_id} to session: {sess.session_id}")
+        return sess
