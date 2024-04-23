@@ -112,17 +112,17 @@ TODO - companion skill
 
 #### Speaker Recognition
 
-A companion `audio transformer` plugin is responsible for storing the last STT audio in redis
+In dinkum-listener/voice-sat install [ovos-redis-mic-plugin](https://github.com/JarbasHiveMind/ovos-redis-mic-plugin), then `mic_id` will be available in the `message.context`
 
-this is accessible by a `mic_id` injected in the `message.context`, usually of the format `mic::{session_id}`
+> `mic_id` might not be present in the `message.context`, the companion listener **plugin is needed** to ensure it is present
+
+This companion `audio transformer` plugin is responsible for storing the last STT audio in redis
+
+The last STT audio is accessible in redis via the `mic_id` injected in the `message.context`, usually of the format `mic::{session_id}`
 
 The speaker recognition plugin can then operate on specific `mic_id` to validate or assign a `user_id`
 
-TODO - companion audio transformer plugin (loaded in dinkum listener)
-
 TODO - companion recognition plugin (loaded in this repo)
-
-> `mic_id` might not be present in the `message.context`, a companion listener plugin is needed to ensure it is present
 
 #### Face Recognition
 
@@ -134,7 +134,7 @@ The face recognition plugin can then operate on specific `camera_id` to validate
 
 TODO - companion plugin (loaded in this repo)
 
-> `camera_id` might not be present in the `message.context`, a companion metadata plugin is needed to ensure it is present
+> `camera_id` might not be present in the `message.context`, the companion metadata plugin is needed to ensure it is present
 
 TODO - add `camera_id` to Session, default to reading from `mycroft.conf` ovos-PHAL-rediscamera config
 

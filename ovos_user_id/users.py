@@ -36,8 +36,6 @@ class UserManager:
             sess = SessionManager.sessions[session_id]
         else:
             sess = Session(session_id=session_id)
-        sess.tts_prefs = user["tts_config"]
-        sess.stt_prefs = user["stt_config"]
         sess.location_prefs = {
             "coordinate": {"latitude": user["latitude"],
                            "longitude": user["longitude"]},
@@ -53,7 +51,7 @@ class UserManager:
                      }
                      }
         }
-        sess.lang = user["lang"]
+        # sess.lang = user["lang"] # not lang as lang is set before STT, this plugin runs after STT
         sess.date_format = user["date_format"]
         sess.time_format = user["time_format"]
         sess.system_unit = user["system_unit"]
