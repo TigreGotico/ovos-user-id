@@ -13,14 +13,15 @@ except ImportError:
 
 class RedisCameraReader:
     """access camera from https://github.com/OpenVoiceOS/ovos-PHAL-rediscamera"""
-    def __init__(self, name, host, port=6379):
+    def __init__(self, device_name: str):
         if not CAMERA_AVAILABLE:
             LOG.error("remote camera not available, please install 'redis' and 'numpy'")
             raise ImportError("redis/numpy not found")
         # Redis connection
-        self.r = redis.Redis(host=host, port=port)
+        kwargs = Configuration().get("redis", {"host": "127.0.0.1", "port": 6379})
+        self.r = redis.Redis(**kwargs)
         self.r.ping()
-        self.name = name
+        self.name = "cam::" + device_name
 
     def get(self):
         """Retrieve Numpy array from Redis camera 'self.name' """
@@ -43,7 +44,7 @@ class CameraManager:
     def get(camera_id) -> Optional[RedisCameraReader]:
         if not CAMERA_AVAILABLE:
             return None
-        host = Configuration().get("vision", {}).get("host", "127.0.0.1")
+        host = Configuration().get("redis", {}).get("host", "127.0.0.1")
         return RedisCameraReader(camera_id, host)
 
 
