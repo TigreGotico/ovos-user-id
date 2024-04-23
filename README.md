@@ -3,6 +3,25 @@
 **WIP** this repo is a work in progress
 _________________
 
+- [OVOS User ID Service](#ovos-user-id-service)
+  * [Installation](#installation)
+  * [Pre Requisites](#pre-requisites)
+    + [SQL](#sql)
+    + [Redis](#redis)
+  * [Plugins](#plugins)
+    + [Redis Microphone](#redis-microphone)
+    + [Redis Camera](#redis-camera)
+    + [User Session Manager](#user-session-manager)
+  * [Authentication Mechanisms](#authentication-mechanisms)
+    + [Auth Phrase](#auth-phrase)
+    + [Speaker Recognition](#speaker-recognition)
+    + [Face Recognition](#face-recognition)
+  * [The User Database](#the-user-database)
+    + [Local SQLite Database](#local-sqlite-database)
+    + [Remote Databases (e.g., MySQL)](#remote-databases--eg--mysql-)
+    + [CLI Commands](#cli-commands)
+
+
 The OVOS User ID service allows skills in the OVOS system to retrieve user data based on the `user_id` included in bus messages.
 Skills can access the user database to provide personalized experiences and interactions.
 
@@ -54,6 +73,45 @@ a OVOS skill can then access a specific camera/microphone by id by retrieving th
   }
 }
 ```
+
+### Plugins
+
+#### Redis Microphone
+
+In dinkum-listener/voice-sat install [ovos-redis-mic-plugin](https://github.com/JarbasHiveMind/ovos-redis-mic-plugin), then `mic_id` will be available in the `message.context`
+
+This companion `audio transformer` plugin is responsible for storing the last STT audio in redis
+
+```python
+"listener": {
+    "audio_transformers": {
+        "ovos-redis-mic-plugin": {}
+    }
+}
+```
+
+> `mic_id` is of the format `mic::{session_id}`
+
+#### Redis Camera
+
+Devices/Satellites can run [ovos-PHAL-rediscamera](https://github.com/OpenVoiceOS/ovos-PHAL-rediscamera) plugin, this plugin will publish the camera feed to redis that can then be accessed by skills with vision capabilities
+
+the feed is accessible by a `camera_id` injected in the `message.context`, usually of the format `cam::{site_id}`
+
+```json
+{
+  "PHAL": {
+    "ovos-PHAL-rediscamera": {
+      "device_name": "my_phal_device",
+      "camera_index": 0
+    }
+  }
+}
+```
+> `camera_id` is of the format `cam::{device_name}`
+
+TODO - add `camera_id` to Session, default to reading from `mycroft.conf` ovos-PHAL-rediscamera config
+
 
 #### User Session Manager
 
@@ -112,31 +170,21 @@ TODO - companion skill
 
 #### Speaker Recognition
 
-In dinkum-listener/voice-sat install [ovos-redis-mic-plugin](https://github.com/JarbasHiveMind/ovos-redis-mic-plugin), then `mic_id` will be available in the `message.context`
-
-> `mic_id` might not be present in the `message.context`, the companion listener **plugin is needed** to ensure it is present
-
-This companion `audio transformer` plugin is responsible for storing the last STT audio in redis
-
 The last STT audio is accessible in redis via the `mic_id` injected in the `message.context`, usually of the format `mic::{session_id}`
 
 The speaker recognition plugin can then operate on specific `mic_id` to validate or assign a `user_id`
 
+> `mic_id` might not be present in the `message.context`, the companion listener **plugin is needed** to ensure it is present
+
 TODO - companion recognition plugin (loaded in this repo)
 
 #### Face Recognition
-
-Devices/Satellites can run [ovos-PHAL-rediscamera](https://github.com/OpenVoiceOS/ovos-PHAL-rediscamera) plugin, this plugin will publish the camera feed to redis that can then be accessed by skills with vision capabilities
-
-the feed is accessible by a `camera_id` injected in the `message.context`, usually of the format `cam::{site_id}`
 
 The face recognition plugin can then operate on specific `camera_id` to validate or assign a `user_id`
 
 TODO - companion plugin (loaded in this repo)
 
 > `camera_id` might not be present in the `message.context`, the companion metadata plugin is needed to ensure it is present
-
-TODO - add `camera_id` to Session, default to reading from `mycroft.conf` ovos-PHAL-rediscamera config
 
 
 ### The User Database
