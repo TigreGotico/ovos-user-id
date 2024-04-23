@@ -96,7 +96,7 @@ This companion `audio transformer` plugin is responsible for storing the last ST
 
 Devices/Satellites can run [ovos-PHAL-rediscamera](https://github.com/OpenVoiceOS/ovos-PHAL-rediscamera) plugin, this plugin will publish the camera feed to redis that can then be accessed by skills with vision capabilities
 
-the feed is accessible by a `camera_id` injected in the `message.context`, usually of the format `cam::{site_id}`
+the feed is accessible by a `camera_id` injected in the `message.context`
 
 ```json
 {

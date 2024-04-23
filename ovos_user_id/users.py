@@ -17,6 +17,8 @@ class UserManager:
     @classmethod
     def bind(cls, face_rec: FaceRecognizer,
              voice_rec: VoiceRecognizer):
+        # TODO - expose these via a bus api instead
+        # allow a dedicated service to run the plugins, avoiding multiple in memory plugins
         cls.face_recognizer = face_rec
         cls.voice_recognizer = voice_rec
 

@@ -1,6 +1,6 @@
 from setuptools import setup
 
-METADATA_ENTRY_POINT = 'ovos-user-session-manager=ovos_user_id.opm:UserSessionPlugin'
+METADATA_ENTRY_POINT = 'ovos-user-session-manager=ovos_user_id:UserSessionPlugin'
 
 
 setup(
