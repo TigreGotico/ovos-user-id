@@ -16,9 +16,6 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import MappedAsDataclass
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import sessionmaker
-from ovos_utils.log import LOG
-from ovos_bus_client.message import Message
-from ovos_bus_client.session import Session, SessionManager
 
 
 class Base(MappedAsDataclass, DeclarativeBase):
