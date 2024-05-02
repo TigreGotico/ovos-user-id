@@ -1,123 +1,105 @@
 import json
-import os
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import List, Union, Dict, Optional
+from typing import List, Dict, Union, Optional
 
+import redis
 from ovos_config import Configuration
-from ovos_config.locations import get_xdg_data_save_path
 from ovos_utils.time import now_local
-from sqlalchemy import Text, LargeBinary
-from sqlalchemy import create_engine
-from sqlalchemy import func
-from sqlalchemy import inspect
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import MappedAsDataclass
-from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import sessionmaker
 
 
-class Base(MappedAsDataclass, DeclarativeBase):
-    """subclasses will be converted to dataclasses"""
+@dataclass
+class User:
+    user_id: int  # this is present in message.context
+    name: str
+    discriminator: str  # the Identity type (i.e., user, agent, group, or role) of the Identity
+    creation_date: datetime = field(default_factory=now_local)
 
-
-class User(Base):
-    __tablename__ = "users"
-
-    user_id: Mapped[int] = mapped_column(init=False, primary_key=True)  # this is present in message.context
-    name: Mapped[str]
-    discriminator: Mapped[str]  # the Identity type (i.e., user, agent, group, or role) of the Identity
-    creation_date: Mapped[datetime] = mapped_column(insert_default=now_local, default=None)
-
-    organization_id: Mapped[str] = mapped_column(default="")  # optional, mostly a placeholder
-    aliases: Mapped[List[str]] = mapped_column(Text, default="[]")  # alt names for the user
+    organization_id: str = ""
+    aliases: List[str] = field(default_factory=list)  # alt names for the user
 
     # security - at runtime, user aware skills can require a minimum auth level
-    auth_level: Mapped[int] = mapped_column(default=0)  # arbitrary number assigned at creation time, 0 - 100
+    auth_level: int = 0  # arbitrary number assigned at creation time, 0 - 100
 
-    # user_id
     # at runtime, this can be used by skills to increase auth_level
-    auth_phrase: Mapped[str] = mapped_column(Text,
-                                             default="")  # "voice password" for basic auth in non-sensitive operations
-    voice_embeddings: Mapped[bytes] = mapped_column(LargeBinary, default=b"")  # binary data for voice embeddings
-    face_embeddings: Mapped[bytes] = mapped_column(LargeBinary, default=b"")  # binary data for face embeddings
-    voice_samples: Mapped[List[str]] = mapped_column(Text, default="[]")  # folder with audio files
-    face_samples: Mapped[List[str]] = mapped_column(Text, default="[]")  # folder with image files
+    auth_phrase: str = ""  # "voice password" for basic auth in non-sensitive operations
+    voice_embeddings: bytes = b""  # binary data for voice embeddings
+    face_embeddings: bytes = b""  # binary data for face embeddings
+    voice_samples: List[str] = field(default_factory=list)  # folder with audio files
+    face_samples: List[str] = field(default_factory=list)  # folder with image files
 
     # Location
-    site_id: Mapped[str] = mapped_column(default="")  # in-doors
-    city: Mapped[str] = mapped_column(default="")
-    city_code: Mapped[str] = mapped_column(default="")
-    region: Mapped[str] = mapped_column(default="")
-    region_code: Mapped[str] = mapped_column(default="")
-    country: Mapped[str] = mapped_column(default="")
-    country_code: Mapped[str] = mapped_column(default="")
-    timezone: Mapped[str] = mapped_column(default="")
-    latitude: Mapped[float] = mapped_column(default=0.0)
-    longitude: Mapped[float] = mapped_column(default=0.0)
+    site_id: str = ""  # in-doors
+    city: str = ""
+    city_code: str = ""
+    region: str = ""
+    region_code: str = ""
+    country: str = ""
+    country_code: str = ""
+    timezone: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
 
-    # preferences
-    system_unit: Mapped[str] = mapped_column(default="metric")
-    time_format: Mapped[str] = mapped_column(default="full")
-    date_format: Mapped[str] = mapped_column(default="DMY")
-    lang: Mapped[str] = mapped_column(default="")
-    secondary_langs: Mapped[List[str]] = mapped_column(Text, default="[]")
-    tts_config: Mapped[Dict[str, str]] = mapped_column(Text, default="{}")
-    stt_config: Mapped[Dict[str, str]] = mapped_column(Text, default="{}")
+    # Preferences
+    system_unit: str = "metric"  # Unit system preference
+    time_format: str = "full"  # Time format preference
+    date_format: str = "DMY"  # Date format preference
+    lang: str = ""  # Language preference
+    secondary_langs: List[str] = field(default_factory=list)  # Secondary languages
+    tts_config: Dict[str, str] = field(default_factory=dict)  # Text-to-speech configuration
+    stt_config: Dict[str, str] = field(default_factory=dict)  # Speech-to-text configuration
 
-    # contact info
-    pgp_pubkey: Mapped[str] = mapped_column(default="")
-    email: Mapped[str] = mapped_column(default="")
-    phone_number: Mapped[str] = mapped_column(default="")
+    # Contact information
+    pgp_pubkey: str = ""  # PGP public key
+    email: str = ""  # Email address
+    phone_number: str = ""  # Phone number
 
     # external_identifiers - eg, facebook_id, github_id... allow mapping users to other dbs
-    external_identifiers: Mapped[Dict] = mapped_column(Text, default="{}")
+    external_identifiers: Dict = field(default_factory=dict)
+
+    @staticmethod
+    def from_dict(user: dict) -> 'User':
+        """Create a User object from a dictionary."""
+        return User(**user)
+
+    @staticmethod
+    def from_json(user: str) -> 'User':
+        """Create a User object from a JSON string."""
+        return User.from_dict(json.loads(user))
 
     @property
     def as_dict(self) -> dict:
-        # Exclude internal SQLAlchemy attributes and relationships
-        list_keys = ["secondary_langs", "aliases", "external_identifiers",
-                     "voice_samples", "face_samples",
-                     "stt_config", "tts_config"]
-        return {c.key: getattr(self, c.key)
-                if c.key not in list_keys else json.loads(getattr(self, c.key))
-                for c in inspect(self).mapper.column_attrs}
+        """Convert User object to a dictionary."""
+        return asdict(self)
+
+    @property
+    def as_json(self) -> str:
+        """Convert User object to a JSON string."""
+        return json.dumps(self.as_dict, sort_keys=True)
 
 
 class UserDB:
-    """default sqlite location: ~/.local/share/ovos_users/user_database.db
-
-     remote databases can also be used, eg.
-        mysql+mysqldb://scott:tiger@192.168.0.134/test?ssl_ca=/path/to/ca.pem&ssl_cert=/path/to/client-cert.pem&ssl_key=/path/to/client-key.pem
-
-     any component that needs to get a user object (eg, skills) should have access to the user database
-     """
-
-    def __init__(self, db_path: str = None):
-        if not db_path:
-            db_path = Configuration().get("users", {}).get("database")
-            if not db_path:
-                os.makedirs(get_xdg_data_save_path('ovos_users'), exist_ok=True)
-                db_path = f"sqlite:///{get_xdg_data_save_path('ovos_users')}/user_database.db"
-        self.engine = create_engine(db_path)
-        self.Session = sessionmaker(bind=self.engine)
-        self.create_tables()
-
-    def create_tables(self):
-        Base.metadata.create_all(self.engine)
+    """Class for managing user data in Redis."""
+    def __init__(self):
+        """Initialize UserDB with Redis connection."""
+        # Redis connection
+        kwargs = Configuration().get("redis", {"host": "127.0.0.1", "port": 6379})
+        self.r = redis.Redis(**kwargs)
+        self.r.ping()
 
     @property
-    def default_user(self) -> dict:
+    def default_user(self) -> User:
+        """Get the default user based on configuration."""
         cfg = Configuration()
         return User(
+            user_id=0,
             name="default",
             discriminator="role",
             lang=cfg.get("lang", "en-us"),
-            secondary_langs=json.dumps(cfg.get("secondary_langs", [])),
+            secondary_langs=cfg.get("secondary_langs", []),
             time_format=cfg.get("time_format", "full"),
             date_format=cfg.get("date_format", "DMY"),
-            systen_unit=cfg.get("system_unit", "metric"),
+            system_unit=cfg.get("system_unit", "metric"),
 
             city=cfg.get("location", {}).get("city", {}).get("name", ""),
             city_code=cfg.get("location", {}).get("city", {}).get("code", ""),
@@ -130,44 +112,22 @@ class UserDB:
             longitude=cfg.get("location", {}).get("coordinate", {}).get("longitude", 0.0),
             timezone=cfg.get("location", {}).get("timezone", {}).get("code", ""),
             email=cfg.get("microservices", {}).get("email", {}).get("recipient", "")
-        ).as_dict
+        )
 
-    def add_user(self, name: str, discriminator: str, **kwargs) -> dict:
+    def add_user(self, name: str, discriminator: str, **kwargs) -> User:
+        """Add a new user to Redis."""
         assert discriminator in ["user", "agent", "group", "role"]
 
-        # Ensure list fields are converted to JSON string before storing
-        for k in ["stt_config", "tts_config", 'secondary_langs', 'aliases',
-                  'voice_samples', 'face_samples', 'external_identifiers']:
-            if k in kwargs:
-                kwargs[k] = json.dumps(kwargs[k])
+        new_user = User(user_id=self.count() + 1, name=name, discriminator=discriminator, **kwargs)
+        self.r.set("user::" + str(new_user.user_id), new_user.as_json)
+        print("Added user:", new_user.name, new_user.user_id)
+        return new_user
 
-        session = self.Session()
+    def update_user(self, user_id: int, **kwargs) -> User:
+        """Update user information in Redis."""
         try:
-            new_user = User(name=name, discriminator=discriminator, **kwargs)
-            session.add(new_user)
-            session.commit()
-            # Access attributes of new_user within the session scope
-            print("Added user:", new_user.name, new_user.user_id)
-            return new_user.as_dict
-        except IntegrityError as e:
-            session.rollback()
-            print(e)
-            raise ValueError("User already exists")  # Handle duplicate user error
-        finally:
-            session.close()
-
-    def update_user(self, user_id: int, **kwargs) -> dict:
-        session = self.Session()
-
-        # Ensure list fields are converted to JSON string before storing
-        for k in ["stt_config", "tts_config", 'secondary_langs', 'aliases',
-                  'voice_samples', 'face_samples', 'external_identifiers']:
-            if k in kwargs:
-                kwargs[k] = json.dumps(kwargs[k])
-
-        try:
-            user = session.query(User).get(user_id)
-            if user is None:
+            user = self.get_user(user_id)
+            if not user:
                 raise ValueError("User not found")
 
             # Update fields from kwargs
@@ -175,84 +135,68 @@ class UserDB:
                 if hasattr(user, key):
                     setattr(user, key, value)
 
-            session.commit()
-            return user.as_dict
+            self.r.set("user::" + str(user.user_id), user.as_json)
+
+            return user
         except Exception as e:
-            session.rollback()
             raise ValueError(f"Failed to update user: {str(e)}")
-        finally:
-            session.close()
 
     def delete_user(self, user_id: int):
-        session = self.Session()
-        try:
-            user_to_delete = session.query(User).get(user_id)
-            if user_to_delete:
-                session.delete(user_to_delete)
-                session.commit()
-            else:
-                raise ValueError("User not found")
-        finally:
-            session.close()
+        """Delete a user from Redis."""
+        self.r.delete("user::" + str(user_id))
 
-    def get_user(self, user_id: int) -> dict:
-        session = self.Session()
-        try:
-            user = session.query(User).get(user_id)
-            if not user:
-                return None
-            return user.as_dict
-        finally:
-            session.close()
+    def get_user(self, user_id: int) -> Optional[User]:
+        """Get a user from Redis by user ID."""
+        user: str = self.r.get("user::" + str(user_id))
+        if user:
+            return User.from_json(user)
+        else:
+            return None
 
-    def find_user(self, name: str) -> List[dict]:
-        session = self.Session()
-        try:
-            # Perform a case-insensitive search for users with matching names
-            users = session.query(User).filter(func.lower(User.name) == func.lower(name)).all()
-            return [u.as_dict for u in users]
-        finally:
-            session.close()
+    def find_user(self, name: str) -> List[User]:
+        """Find users by name."""
+        users = []
+        for key in self.r.scan_iter("user::*"):
+            user: str = self.r.get(key)
+            if user and json.loads(user)['name'] == name:
+                users.append(User.from_json(user))
+        return users
 
-    def find_by_auth_phrase(self, auth_phrase: str) -> List[dict]:
-        session = self.Session()
-        try:
-            # Perform a case-insensitive search for users with matching auth_phrase
-            users = session.query(User).filter(func.lower(User.auth_phrase) == func.lower(auth_phrase)).all()
-            return [u.as_dict for u in users]
-        finally:
-            session.close()
+    def find_by_auth_phrase(self, auth_phrase: str) -> List[User]:
+        """Find users by authentication phrase."""
+        users = []
+        for key in self.r.scan_iter("user::*"):
+            user: str = self.r.get(key)
+            if user and json.loads(user)['auth_phrase'] == auth_phrase:
+                users.append(User.from_json(user))
+        return users
 
-    def find_user_by_alias(self, alias: str) -> List[dict]:
-        session = self.Session()
-        try:
-            users = session.query(User).filter(func.lower(User.name) == func.lower(alias)).all()
-            # This assumes that aliases is a JSON-encoded list of strings
-            users2 = session.query(User).filter(
-                User.aliases.contains(f'"{alias}"')  # Note the inclusion of quotes for JSON string searching
-            ).all()
-            return [u.as_dict for u in users] + [u.as_dict for u in users2]
-        finally:
-            session.close()
+    def find_user_by_alias(self, alias: str) -> List[User]:
+        """Find users by alias."""
+        users = []
+        for key in self.r.scan_iter("user::*"):
+            user: str = self.r.get(key)
+            if user and alias in json.loads(user)['aliases']:
+                users.append(User.from_json(user))
+        return users
 
-    def find_by_external_id(self, id_string: Union[str, int]) -> List[dict]:
-        id_string = str(id_string)
+    def find_by_external_id(self, id_string: Union[str, int]) -> List[User]:
+        """Find users by external identifier."""
+        users = []
+        for key in self.r.scan_iter("user::*"):
+            user: str = self.r.get(key)
+            if user and str(id_string) in json.loads(user)['external_identifiers'].values():
+                users.append(User.from_json(user))
+        return users
 
-        session = self.Session()
-        try:
-            # This assumes that entity ids is JSON-encoded dict of strings
-            users = session.query(User).filter(
-                User.aliases.contains(f'"{id_string}"')  # Note the inclusion of quotes for JSON string searching
-            ).all()
-            return [u.as_dict for u in users]
-        finally:
-            session.close()
+    def list_users(self) -> List[User]:
+        """List all users stored in Redis."""
+        users = []
+        for key in self.r.scan_iter("user::*"):
+            user: str = self.r.get(key)
+            if user:
+                users.append(User.from_json(user))
+        return users
 
-    def list_users(self) -> List[dict]:
-        session = self.Session()
-        try:
-            # Query all users and retrieve their details
-            users = session.query(User).all()
-            return [user.as_dict for user in users]
-        finally:
-            session.close()
+    def count(self) -> int:
+        return len(list(self.r.scan_iter("user::*")))

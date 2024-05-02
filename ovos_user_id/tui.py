@@ -3,12 +3,12 @@ from ovos_user_id.db import UserDB
 
 
 @click.group()
-@click.option("--db-path", default=None, help="Path to the SQLite user database.")
 @click.pass_context
 def cli(ctx, db_path):
     """Manage users in the database."""
     ctx.ensure_object(dict)
-    ctx.obj["db"] = UserDB(db_path)
+    # TODO - allow redis config kwargs
+    ctx.obj["db"] = UserDB()
 
 
 @cli.command()
