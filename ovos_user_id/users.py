@@ -1,22 +1,24 @@
-from ovos_user_id.db import UserDB
-from ovos_user_id.cam import CameraManager
-from ovos_user_id.mic import MicManager
-from ovos_user_id.templates import FaceRecognizer, VoiceRecognizer
-from ovos_bus_client.session import Session, SessionManager
-from ovos_bus_client.message import Message
-from ovos_utils.log import LOG
 from typing import Optional, Dict
+
+from ovos_bus_client.message import Message
+from ovos_bus_client.session import Session, SessionManager
+from ovos_utils.log import LOG
+
+from ovos_plugin_manager.templates.embeddings import FaceEmbeddingsRecognizer, VoiceEmbeddingsRecognizer
+from ovos_user_id.cam import CameraManager
+from ovos_user_id.db import UserDB
+from ovos_user_id.mic import MicManager
 
 
 class UserManager:
     db: UserDB = UserDB()
-    face_recognizer: FaceRecognizer = None
-    voice_recognizer: VoiceRecognizer = None
+    face_recognizer: FaceEmbeddingsRecognizer = None
+    voice_recognizer: VoiceEmbeddingsRecognizer = None
     sess2user: dict = {}
 
     @classmethod
-    def bind(cls, face_rec: FaceRecognizer,
-             voice_rec: VoiceRecognizer):
+    def bind(cls, face_rec: FaceEmbeddingsRecognizer,
+             voice_rec: VoiceEmbeddingsRecognizer):
         # TODO - expose these via a bus api instead
         # allow a dedicated service to run the plugins, avoiding multiple in memory plugins
         cls.face_recognizer = face_rec
