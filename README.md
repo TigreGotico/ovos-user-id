@@ -63,7 +63,7 @@ a OVOS skill can then access a specific camera/microphone by id by retrieving th
 
 #### Redis Microphone
 
-In dinkum-listener/voice-sat install [ovos-redis-mic-plugin](https://github.com/JarbasHiveMind/ovos-redis-mic-plugin), then `mic_id` will be available in the `message.context`
+In dinkum-listener/voice-sat install [ovos-redis-mic-plugin](https://github.com/TigreGotico/ovos-redis-mic-plugin), then `mic_id` will be available in the `message.context`
 
 This companion `audio transformer` plugin is responsible for storing the last STT audio in redis
 
@@ -79,7 +79,7 @@ This companion `audio transformer` plugin is responsible for storing the last ST
 
 #### Redis Camera
 
-Devices/Satellites can run [ovos-PHAL-rediscamera](https://github.com/OpenVoiceOS/ovos-PHAL-rediscamera) plugin, this plugin will publish the camera feed to redis that can then be accessed by skills with vision capabilities
+Devices/Satellites can run [ovos-PHAL-rediscamera](https://github.com/TigreGotico/ovos-PHAL-rediscamera) plugin, this plugin will publish the camera feed to redis that can then be accessed by skills with vision capabilities
 
 the feed is accessible by a `camera_id` injected in the `message.context`
 
@@ -96,7 +96,6 @@ the feed is accessible by a `camera_id` injected in the `message.context`
 > `camera_id` is of the format `cam::{device_name}`
 
 TODO - add `camera_id` to Session, default to reading from `mycroft.conf` ovos-PHAL-rediscamera config
-
 
 #### User Session Manager
 
@@ -157,7 +156,7 @@ TODO - companion skill
 
 The last STT audio is accessible in redis via the `mic_id` injected in the `message.context`, usually of the format `mic::{session_id}`
 
-The speaker recognition plugin can then operate on specific `mic_id` to validate or assign a `user_id`
+The [speaker recognition plugin](https://github.com/TigreGotico/ovos-voice-embeddings-plugin) can then operate on specific `mic_id` to validate or assign a `user_id`
 
 > `mic_id` might not be present in the `message.context`, the companion listener **plugin is needed** to ensure it is present
 
@@ -165,14 +164,14 @@ TODO - companion recognition plugin (loaded in this repo)
 
 #### Face Recognition
 
-The face recognition plugin can then operate on specific `camera_id` to validate or assign a `user_id`
+The [face recognition plugin](https://github.com/TigreGotico/ovos-face-embeddings-plugin) can then operate on specific `camera_id` to validate or assign a `user_id`
 
 TODO - companion plugin (loaded in this repo)
 
-> `camera_id` might not be present in the `message.context`, the companion metadata plugin is needed to ensure it is present
+> `camera_id` might not be present in the `message.context`, the companion metadata **plugin is needed** to ensure it is present
 
 
-### The User Database -  CLI Commands
+### The User Database - CLI Commands
 
 - **Adding a New User**: Adds a new user to redis with specified details.
 
